@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splitpal</title>
+    <style>
+        :root {
+            --primary-color: #6a4c93;
+            --secondary-color: #000000;
+            --accent-color: #c92626;
+            --background-color: #f8f9fa;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: var(--primary-color);
+            text-align: center;
+        }
+        input, button, select {
+            margin: 10px 0;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            background-color: white;
+        }
+        th {
+            background-color: var(--secondary-color);
+            color: white;
+            font-weight: bold;
+        }
+        tr {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+        td:first-child, th:first-child {
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+        }
+        td:last-child, th:last-child {
+            border-top-right-radius: 10px;
+            border-bottom-right-radius: 10px;
+        }
+        .remove-btn {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .remove-btn:hover {
+            background-color: #ee5253;
+        }
+        #nameList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #nameList span {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+        }
+        #nameList .remove-btn {
+            background-color: transparent;
+            color: white;
+            border: none;
+            margin-left: 5px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        @media (max-width: 600px) {
+            table {
+                font-size: 14px;
+            }
+            th, td {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Splitpal 💸</h1>
+        <div>
+            <input type="text" id="nameInput" placeholder="Enter a friend's name">
+            <button onclick="addName()">Add Friend</button>
+        </div>
+        <div id="nameList"></div>
+        <div>
+            <button onclick="addExpenseRow()">Add Expense</button>
+            <button onclick="calculateSettlement()">Calculate Settlement</button>
+        </div>
+        <table id="expenseTable">
+            <thead>
+                <tr id="headerRow">
+                    <th>Expense Name</th>
+                    <th>Amount</th>
+                    <th>Paid for by</th>
+                </tr>
+            </thead>
+            <tbody id="expenseBody">
+            </tbody>
+        </table>
+        <div id="settlementResult"></div>
+    </div>
+
+    <script>
+        let names = JSON.parse(localStorage.getItem('names')) || [];
+        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+
+        function saveToLocalStorage() {
+            localStorage.setItem('names', JSON.stringify(names));
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+        }
+
+        function addName() {
+            const nameInput = document.getElementById('nameInput');
+            const name = nameInput.value.trim();
+            if (name && !names.includes(name)) {
+                names.push(name);
+                updateNameList();
+                updateTable();
+                nameInput.value = '';
+                saveToLocalStorage();
+            }
+        }
+
+        function updateNameList() {
+            const nameList = document.getElementById('nameList');
+            nameList.innerHTML = '';
+            names.forEach((name, index) => {
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = name;
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '×';
+                removeBtn.className = 'remove-btn';
+                removeBtn.onclick = () => removeName(index);
+                nameSpan.appendChild(removeBtn);
+                nameList.appendChild(nameSpan);
+            });
+        }
+
+        function removeName(index) {
+            names.splice(index, 1);
+            updateNameList();
+            updateTable();
+            saveToLocalStorage();
+        }
+
+        function updateTable() {
+            const headerRow = document.getElementById('headerRow');
+            while (headerRow.children.length > 3) {
+                headerRow.removeChild(headerRow.lastChild);
+            }
+            names.forEach(name => {
+                const th = document.createElement('th');
+                th.textContent = name;
+                headerRow.appendChild(th);
+            });
+            expenses.forEach((expense, index) => {
+                updateExpenseRow(expense, index);
+            });
+        }
+
+        function addExpenseRow() {
+            const expense = { name: '', amount: 0, paidBy: '', participants: {} };
+            names.forEach(name => expense.participants[name] = false);
+            expenses.push(expense);
+            updateExpenseRow(expense, expenses.length - 1);
+            saveToLocalStorage();
+        }
+
+        function updateExpenseRow(expense, index) {
+            let row = document.getElementById('expenseBody').children[index];
+            if (!row) {
+                row = document.getElementById('expenseBody').insertRow();
+            }
+            row.innerHTML = '';
+            
+            const nameCell = row.insertCell();
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.value = expense.name;
+            nameInput.oninput = (e) => { expense.name = e.target.value; saveToLocalStorage(); };
+            nameCell.appendChild(nameInput);
+
+            const amountCell = row.insertCell();
+            const amountInput = document.createElement('input');
+            amountInput.type = 'number';
+            amountInput.value = expense.amount;
+            amountInput.oninput = (e) => { expense.amount = parseFloat(e.target.value); saveToLocalStorage(); };
+            amountCell.appendChild(amountInput);
+
+            const paidByCell = row.insertCell();
+            const paidBySelect = document.createElement('select');
+            paidBySelect.innerHTML = '<option value="">Select payer</option>' + 
+                names.map(name => `<option value="${name}" ${name === expense.paidBy ? 'selected' : ''}>${name}</option>`).join('');
+            paidBySelect.onchange = (e) => { expense.paidBy = e.target.value; saveToLocalStorage(); };
+            paidByCell.appendChild(paidBySelect);
+
+            names.forEach(name => {
+                const td = row.insertCell();
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = expense.participants[name];
+                checkbox.onchange = (e) => { expense.participants[name] = e.target.checked; saveToLocalStorage(); };
+                td.appendChild(checkbox);
+            });
+
+            const removeCell = row.insertCell();
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.className = 'remove-btn';
+            removeBtn.onclick = () => removeExpense(index);
+            removeCell.appendChild(removeBtn);
+        }
+
+        function removeExpense(index) {
+            expenses.splice(index, 1);
+            updateTable();
+            saveToLocalStorage();
+        }
+
+        function calculateSettlement() {
+            console.log("Calculate Settlement function called");
+            try {
+                if (expenses.length === 0) {
+                    alert("No expenses found. Please add some expenses before calculating.");
+                    return;
+                }
+
+                const balances = {};
+                names.forEach(name => balances[name] = 0);
+
+                expenses.forEach(expense => {
+                    const participants = Object.entries(expense.participants).filter(([_, value]) => value).map(([key, _]) => key);
+                    if (participants.length === 0 || !expense.paidBy) {
+                        console.warn(`Expense "${expense.name}" has no participants or no payer. Skipping.`);
+                        return;
+                    }
+                    const amount = parseFloat(expense.amount);
+                    if (isNaN(amount)) {
+                        console.warn(`Expense "${expense.name}" has invalid amount. Skipping.`);
+                        return;
+                    }
+                    const perPerson = amount / participants.length;
+                    balances[expense.paidBy] += amount;
+                    participants.forEach(participant => {
+                        balances[participant] -= perPerson;
+                    });
+                });
+
+                console.log("Balances:", balances);
+
+                const sortedBalances = Object.entries(balances).sort((a, b) => b[1] - a[1]);
+                console.log("Sorted Balances:", sortedBalances);
+
+                const settlements = [];
+                const epsilon = 0.01; // To handle floating point imprecision
+
+                for (let i = 0; i < sortedBalances.length; i++) {
+                    if (Math.abs(sortedBalances[i][1]) < epsilon) continue;
+                    for (let j = sortedBalances.length - 1; j > i; j--) {
+                        if (Math.abs(sortedBalances[j][1]) < epsilon) continue;
+                        const [payer, payerBalance] = sortedBalances[i];
+                        const [receiver, receiverBalance] = sortedBalances[j];
+                        if (payerBalance > 0 && receiverBalance < 0) {
+                            const amount = Math.min(payerBalance, -receiverBalance);
+                            settlements.push({ payer, receiver, amount });
+                            sortedBalances[i][1] -= amount;
+                            sortedBalances[j][1] += amount;
+                            if (Math.abs(sortedBalances[i][1]) < epsilon) break;
+                        }
+                    }
+                }
+
+                console.log("Settlements:", settlements);
+
+                displaySettlement(settlements);
+            } catch (error) {
+                console.error("Error in calculateSettlement:", error);
+            }
+        }
+
+        function displaySettlement(settlements) {
+            console.log("Display Settlement function called");
+            const settlementResult = document.getElementById('settlementResult');
+            settlementResult.innerHTML = '<h2>Settlement 💰</h2>';
+            if (settlements.length === 0) {
+                settlementResult.innerHTML += '<p>No settlements needed. Everyone is square! 🎉</p>';
+                return;
+            }
+            const table = document.createElement('table');
+            table.innerHTML = '<tr><th>Payer</th><th>Receiver</th><th>Amount</th></tr>';
+            settlements.forEach(({ payer, receiver, amount }) => {
+                const row = table.insertRow();
+                row.insertCell(0).textContent = payer;
+                row.insertCell(1).textContent = receiver;
+                row.insertCell(2).textContent = `$${amount.toFixed(2)}`;
+            });
+            settlementResult.appendChild(table);
+        }
+
+        // Initial load
+        updateNameList();
+        updateTable();
+    </script>
+</body>
+</html>
